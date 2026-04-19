@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Outil BIP39 - Phrase m\u00e9monique avec d\u00e9s</title>
+<style>
+body { font-family: Arial, sans-serif; margin:20px; max-width:800px; }
+#dice-buttons button { margin:4px; padding:8px 12px; width:40px; font-size:16px; }
+#phrase-display { margin-top:1rem; padding:1rem; border:1px solid #ccc; background:#fafafa; white-space:pre-line; }
+.bits-info { margin-top:0.5rem; }
+</style>
+</head>
+<body>
+<h1>Outil BIP39\u00a0: g\u00e9n\u00e9ration de phrases m\u00e9n\u00e9moniques avec d\u00e9s</h1>
+<p>
+Choisissez un nombre de mots et saisissez des lancers de d\u00e9s\u00a0: 1,3,5 produisent un bit\u00a01, 2,4,6 un bit\u00a00. L'application calcule automatiquement le checksum et affiche la phrase m\u00e9n\u00e9monique.
+</p>
+<div id="controls">
+<label for="word-count">Nombre de mots :</label>
+<select id="word-count">
+<option value="12">12</option>
+<option value="15">15</option>
+<option value="18">18</option>
+<option value="21">21</option>
+<option value="24">24</option>
+</select>
+<button id="reset">R\u00e9initialiser</button>
+</div>
+<div id="dice-buttons">
+<button data-val="1">1</button>
+<button data-val="2">2</button>
+<button data-val="3">3</button>
+<button data-val="4">4</button>
+<button data-val="5">5</button>
+<button data-val="6">6</button>
+</div>
+<div class="bits-info">
+Bits saisis : <span id="bits-entered">0</span>/<span id="bits-required">0</span>
+</div>
+<h2>Phrase m\u00e9n\u00e9monique g\u00e9n\u00e9r\u00e9e</h2>
+<div id="phrase-display">(aucun mot pour l’instant)</div>
+
+<script>
+let WORDLIST = [];
+async function loadWordlist() {
+  try {
+    const resp = await fetch('https://raw.githubusercontent.com/bitcoin/bips/master/bip-0039/english.txt');
+    const text = await resp.text();
+    WORDLIST = text.trim().split(/\s+/);
+  } catch (err) {
+    console.error('Erreur chargement liste BIP39', err);
+    WORDLIST = ['abandon','ability','able','about','above','absent','absorb','abstract'];
+  }
+}
+
+async function sha256bits(bitString) {
+  const padded = bitString.padEnd(Math.ceil(bitString.length / 8) * 8, '0');
+  const byteStrings = padded.match(/.{8}/g) || [];
+  const bytes = new Uint8Array(byteStrings.map(b => parseInt(b, 2)));
+  const buffer = await crypto.subtle.digest('SHA-256', bytes);
+  const hashArray = Array.from(new Uint8Array(buffer));
+  return hashArray.map(b => b.toString(2).padStart(8,'0')).join('');
+}
+
+let bits = '';
+let requiredBits = 0;
+let checksumBits = 0;
+let numWords = 12;
+
+const bitsEnteredEl = document.getElementById('bits-entered');
+const bitsRequiredEl = document.getElementById('bits-required');
+const phraseDisplayEl = document.getElementById('phrase-display');
+const wordCountSelect = document.getElementById('word-count');
+
+function updateCounts() {
+  bitsEnteredEl.textContent = bits.length;
+  bitsRequiredEl.textContent = requiredBits;
+}
+
+function updateRequiredBits() {
+  numWords = parseInt(wordCountSelect.value, 10);
+  const mapping = {12:4,15:5,18:6,21:7,24:8};
+  checksumBits = mapping[numWords] || 4;
+  const entropyBits = numWords * 11 - checksumBits;
+  requiredBits = entropyBits;
+  bits = '';
+  phraseDisplayEl.textContent = '(aucun mot pour l\u2019instant)';
+  updateCounts();
+}
+
+async function computeMnemonic() {
+  if (WORDLIST.length < 2048) {
+    phraseDisplayEl.textContent = 'Liste de mots BIP39 non charg\u00e9e.';
+    return;
+  }
+  const entropyBits = bits;
+  const hashBits = await sha256bits(entropyBits);
+  const cs = hashBits.slice(0, checksumBits);
+  const fullBits = entropyBits + cs;
+  const words = [];
+  for (let i=0; i<fullBits.length; i+=11) {
+    const slice = fullBits.slice(i, i+11);
+    const index = parseInt(slice, 2);
+    words.push(WORDLIST[index]);
+  }
+  phraseDisplayEl.textContent = words.join(' ');
+}
+
+document.querySelectorAll('#dice-buttons button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const val = parseInt(btn.getAttribute('data-val'),10);
+    const bit = (val % 2 === 1) ? '1' : '0';
+    if (bits.length < requiredBits) {
+      bits += bit;
+      updateCounts();
+      if (bits.length === requiredBits) {
+        computeMnemonic();
+      }
+    }
+  });
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  bits = '';
+  phraseDisplayEl.textContent = '(aucun mot pour l\u2019instant)';
+  updateCounts();
+});
+
+wordCountSelect.addEventListener('change', updateRequiredBits);
+
+(async function init() {
+  await loadWordlist();
+  updateRequiredBits();
+})();
+</script>
+</body>
+</html>
