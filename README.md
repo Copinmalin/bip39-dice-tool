@@ -2,6 +2,11 @@
 
 Ce dépôt contient une application Web hors ligne pour générer et vérifier une phrase ménomique BIP39 à partir de lancers de dés. Les phrases BIP39 sont utilisées pour représenter de manière lisible une entropie cryptographique, notamment pour les portefeuilles Bitcoin. Cet outil propose une approche manuelle où chaque bit de l'entropie est déterminé par un lancer de dé physique.
 
+## Avertissement de sécurité
+
+⚠️ Ce dépôt **n’a pas encore fait l’objet d’un audit de sécurité indépendant**.
+N’utilisez pas cet outil pour la conservation de longue durée ni pour protéger de grosses sommes tant qu’un audit n’a pas été réalisé.
+
 ## Fonctionnement
 
 L'application affiche une interface minimaliste permettant de :
